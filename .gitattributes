@@ -1,0 +1,5 @@
+# Ignore CSS files from GitHub Linguist language stats
+*.css linguist-vendored
+
+# Force Python to be recognized as the main language
+*.py linguist-detectable=true
