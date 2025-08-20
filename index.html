@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PDF Chat Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Theme Toggle Button -->
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme">
+        <span class="theme-icon">🌙</span>
+    </button>
+
+    <div class="container">
+        <h1>SRM AI Study Guide</h1>
+        <p class="subtitle">Ask Detailed Follow-up questions</p>
+        
+        <form id="pdfForm" method="post" action="/upload-pdf" enctype="multipart/form-data">
+            <label for="pdf_file">Upload PDF file:</label>
+            <input type="file" name="pdf_file" accept=".pdf" required>
+            <input type="submit" value="Upload & Start Chatting">
+        </form>
+
+        <div id="loadingMessage" style="display: none;">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <p id="loadingText">Processing your PDF...</p>
+                <p id="loadingDetails" style="font-size: 0.9rem; opacity: 0.8;"></p>
+            </div>
+        </div>
+
+        <div id="errorMessage" style="display: none;">
+            <p id="errorText"></p>
+            <button onclick="resetForm()">Try Again</button>
+        </div>
+
+        <script>
+            // Theme Toggle Functionality
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = document.querySelector('.theme-icon');
+            
+            // Load saved theme or default to dark
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.body.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+            
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = document.body.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                document.body.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeIcon(newTheme);
+            });
+            
+            function updateThemeIcon(theme) {
+                themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            }
+
+            const pdfForm = document.getElementById('pdfForm');
+            const loadingMessage = document.getElementById('loadingMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            const fileInput = document.querySelector('input[type="file"]');
+
+            // Show file size when selected
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                    console.log(`Selected file: ${file.name}, Size: ${sizeMB}MB`);
+                    
+                    if (file.size > 50 * 1024 * 1024) {
+                        alert('File is too large. Maximum size is 50MB.');
+                        fileInput.value = '';
+                    }
+                }
+            });
+
+            function resetForm() {
+                loadingMessage.style.display = 'none';
+                errorMessage.style.display = 'none';
+                pdfForm.style.display = 'block';
+            }
+
+            pdfForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert('Please select a PDF file');
+                    return;
+                }
+
+                const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                
+                pdfForm.style.display = 'none';
+                loadingMessage.style.display = 'block';
+                document.getElementById('loadingDetails').textContent = `File: ${file.name} (${sizeMB}MB)`;
+               
+                const formData = new FormData(pdfForm);
+                
+                // Add timeout for large files
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+                
+                fetch("/upload-pdf", {
+                    method: "POST",
+                    body: formData,
+                    signal: controller.signal
+                })
+                .then(response => {
+                    clearTimeout(timeoutId);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Upload response:', data);
+                    if (data.success) {
+                        document.getElementById('loadingText').textContent = 'Success! Redirecting...';
+                        setTimeout(() => {
+                            window.location.href = '/viewer';
+                        }, 1000);
+                    } else {
+                        throw new Error(data.error || 'Upload failed');
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeoutId);
+                    console.error('Upload error:', error);
+                    
+                    loadingMessage.style.display = 'none';
+                    errorMessage.style.display = 'block';
+                    
+                    let errorText = 'Upload failed: ';
+                    if (error.name === 'AbortError') {
+                        errorText += 'Upload timed out. Please try with a smaller file.';
+                    } else {
+                        errorText += error.message;
+                    }
+                    
+                    document.getElementById('errorText').textContent = errorText;
+                });
+            });
+        </script>
+    </div>
+</body>
+</html>
