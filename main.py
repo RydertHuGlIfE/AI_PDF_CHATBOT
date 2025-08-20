@@ -18,7 +18,7 @@ ALLOWED_EXTENSIONS = {'pdf'}
 
 app.secret_key = "areterimkbsda"   
 
-genai.configure(api_key="ADD_YOUR_API_KEY_HERE")
+genai.configure(api_key="ADD_YOUR_GEMINI_API_KEY_HERE")
 model = genai.GenerativeModel("models/gemini-1.5-flash", generation_config={
     "temperature": 0.7,
     "top_p": 0.9,
@@ -286,5 +286,6 @@ def handle_413(e):
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
