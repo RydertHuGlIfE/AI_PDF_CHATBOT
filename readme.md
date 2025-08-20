@@ -5,10 +5,10 @@ This project is part of our vision to build an **AI-adapted e-learning platform*
 AI_PDF_CHATBOT/
 -
 ├── static/
-    │ └── styles/
-    │ └── viewer.css
-    │ └── styles.css
-    │ └── favico.ico
+    -│ └── styles/
+        -│ └── viewer.css
+        -│ └── styles.css
+        -│ └── favico.ico
 -
   └── templates/
     ├── index.html
