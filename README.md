@@ -123,6 +123,4 @@ Toggle between **light mode** for a clean, bright interface or **dark mode** for
 
 ---
 
-## **🚀 Installation Instructions**
-
 
