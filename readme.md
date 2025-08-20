@@ -65,6 +65,16 @@ This is a **step toward an adaptive AI-powered e-learning platform** where docum
 
 ---
 
+## **💡 Executing Instruction**
+- You need to have a Google Gemini API key to run this program
+- It is recommended to create a virtual Environment before running this to ensure better compatiblity [optional]
+- To install All the necessary modules type : <pre> pip install -r requirements.txt </pre>
+- Then if you are Inside Venv please install the modules INSIDE of the venv
+- Run the program and visit 127.0.0.1/5000   (port number could be different but it is usually 5000)
+- An OCR Scanned PDF is required, Handwritten OCR Scanned PDFs will not be recognised
+
+---
+
 ## **🛠️ Tech Stack**
 
 - **Python 3.x** – Backend language  
@@ -74,10 +84,6 @@ This is a **step toward an adaptive AI-powered e-learning platform** where docum
 - **HTML/CSS** – Frontend interface  
 
 ---
-
-## **Requirements**
-- Refer to **requirements.txt**
-
 
 ## **🎬 Prototype Screenshots**
 
