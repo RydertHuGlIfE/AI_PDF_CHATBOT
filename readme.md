@@ -3,8 +3,8 @@
 This project is part of our vision to build an **AI-adapted e-learning platform**. This sophisticated web application allows users to upload a PDF, extract its content, interact with an AI for intelligent conversation, summarize documents in HTML format, and even generate code from the content. Utilizing cutting-edge AI models and seamless integration with Flask, this platform provides a high-performance, user-friendly interface for PDF interaction and document manipulation.
 
 AI_PDF_CHATBOT/
---
---├── static/
+-
+├── static/
 │ └── styles/
 │ └── viewer.css
 --
