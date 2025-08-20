@@ -5,12 +5,12 @@ This project is part of our vision to build an **AI-adapted e-learning platform*
 <pre> 📂 Project Structure 
   ├── static/ 
     │ └── styles/ │
-    └── viewer.css │ 
-    └── styles.css │
-    └── favico.ico │ 
+          └── viewer.css │ 
+          └── styles.css │
+          └── favico.ico │ 
   └── templates/
-    ├── index.html 
-    └── viewer.html 
+      ├── index.html 
+      └── viewer.html 
   └── main.py
   └── readme.md
   └── requirements.txt
