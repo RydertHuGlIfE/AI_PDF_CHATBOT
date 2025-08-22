@@ -226,6 +226,23 @@ def start_quiz():
       ]
     }}
 
+    IMPORTANT OUTPUT RULES:
+- Output valid HTML only (no Markdown, no backslashes) but dont mention html in the text and neither use ```.
+- Use <h3> for section titles.
+- Use <ol><li> for numbered lists.
+- Use <strong> for bold.
+- Use <p> for paragraphs.
+- Do not include <script> or event handlers.
+- use "  " this spacing for the bullet points and = this for subpoints
+While Making bullet points give a space after heading eg 
+try to give most answers in bullet points unless asked...
+try to be as consice and give a short answer as well unless asked in detail 
+and dont use ``` or html words in the response and make it look clean
+instead of numbers use bullet points topic 
+   1: h1
+   2: h2 
+
+
     PDF CONTENT:
     {pdf_text}
     """
