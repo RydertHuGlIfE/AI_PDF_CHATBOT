@@ -365,7 +365,7 @@ body {
     gap: 12px;
 }
 
-.summarize-btn, .youtube-btn, .mindmap-btn {
+.summarize-btn, .youtube-btn, .mindmap-btn, .quiz-btn {
     border: none;
     padding: 12px 20px;
     border-radius: 22px;
@@ -408,6 +408,24 @@ body {
 }
 
 .mindmap-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+
+.quiz-btn {
+    background: linear-gradient(135deg, #e1a100 0%, #c29201 100%);
+    box-shadow: 0 0 8px rgba(46, 2, 109, 0.5);
+}
+
+.quiz-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 0 15px rgba(46, 2, 109, 0.8);
+    background: linear-gradient(135deg, #146c8c 0%, #037594 100%);
+}
+
+.quiz-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
