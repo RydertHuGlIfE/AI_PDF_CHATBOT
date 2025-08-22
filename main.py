@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
 import webbrowser
 import json 
+import random
 
 app = Flask(__name__)
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,9 +20,9 @@ ALLOWED_EXTENSIONS = {'pdf'}
 
 app.secret_key = "areterimkbsda"   
 
-genai.configure(api_key="insert_api_key")
+genai.configure(api_key="insert_your_api_key_here")
 model = genai.GenerativeModel("models/gemini-1.5-flash", generation_config={
-    "temperature": 0.7,
+    "temperature": 1.0,
     "top_p": 0.9,
     "top_k": 40,
     "max_output_tokens": 4000
@@ -187,6 +188,8 @@ try to be as consice and give a short answer as well unless asked in detail
 and dont use ``` or html words in the response and make it look clean
 instead of numbers use bullet pts
 
+
+
 PDF CONTENT:
 {pdf_text}
 """
@@ -213,51 +216,51 @@ def start_quiz():
     with open(text_path, "r", encoding="utf-8") as f:
         pdf_text = f.read()
 
+    text_chunk = ""
+    chunk_size = 4000  
+    if len(pdf_text) > chunk_size:
+        max_start_index = len(pdf_text) - chunk_size
+        start_index = random.randint(0, max_start_index)
+        text_chunk = pdf_text[start_index : start_index + chunk_size]
+    else:
+        text_chunk = pdf_text
+
+    seed = random.randint(1000, 9999)
+
     prompt = f"""
-    You are in quiz mode. Generate 5 MCQ questions with 4 options and correct answer,
-    and 5 theoretical questions. Return **only JSON**, strictly in this format:
+    You are a quiz generator. Your task is to create a new set of questions based on the provided text section.
+
+    Use the unique identifier **{seed}** to ensure variety.
+
+    Generate 5 multiple-choice questions and 5 theoretical questions based on the document.
+    For MCQs, return options in this exact format:
+    ["A) option text" \n, "B) option text" \n, "C) option text" \n, "D) option text" \n]
+
+    Return **ONLY a valid JSON object** with no other text.
     {{
       "mcq": [
-        {{"q": "question text", "options": ["A","B","C","D"], "answer": "B"}}
+        {{"q": "question text", "options": ["A) ...","B) ...","C) ...","D) ..."], "answer": "B"}}
       ],
       "theory": [
-        "theory question 1",
-        "theory question 2"
+        "Theory question 1?",
+        "Theory question 2?"
       ]
     }}
 
-    IMPORTANT OUTPUT RULES:
-- Output valid HTML only (no Markdown, no backslashes) but dont mention html in the text and neither use ```.
-- Use <h3> for section titles.
-- Use <ol><li> for numbered lists.
-- Use <strong> for bold.
-- Use <p> for paragraphs.
-- Do not include <script> or event handlers.
-- use "  " this spacing for the bullet points and = this for subpoints
-While Making bullet points give a space after heading eg 
-try to give most answers in bullet points unless asked...
-try to be as consice and give a short answer as well unless asked in detail 
-and dont use ``` or html words in the response and make it look clean
-instead of numbers use bullet points topic 
-   1: h1
-   2: h2 
-
-
-    PDF CONTENT:
-    {pdf_text}
+    DOCUMENT SECTION:
+    {text_chunk}
     """
 
     try:
         response = model.generate_content(prompt)
         raw_text = response.candidates[0].content.parts[0].text.strip()
 
-        # clean possible junk around JSON
         if raw_text.startswith("```"):
-            raw_text = raw_text.strip("`")  
+            raw_text = raw_text.strip("`")
         if raw_text.lower().startswith("json"):
             raw_text = raw_text[4:].strip()
 
-        quiz_data = json.loads(raw_text)  # <-- safe parsing
+        quiz_data = json.loads(raw_text)
 
         session['quiz'] = {
             "mcq": quiz_data["mcq"],
@@ -270,11 +273,15 @@ instead of numbers use bullet points topic
         session.modified = True
 
         first_q = quiz_data["mcq"][0]
-        return jsonify({"question": first_q["q"], "options": first_q["options"]})
+        return jsonify({
+            "instruction": "Please type options only in (A / B / C / D)",
+            
+            "question": first_q["q"],
+            "options": first_q["options"]
+        })
 
     except Exception as e:
         return jsonify({"error": f"Error generating Quiz: {str(e)}"}), 500
-
 
 
 @app.route('/quiz/answer', methods=['POST'])
@@ -290,19 +297,19 @@ def quiz_answer():
     if quiz["phase"] == "mcq":
         q_index = quiz["current_mcq"]
         question = quiz["mcq"][q_index]["q"]
-        correct = quiz["mcq"][q_index]["answer"]
+        correct_U = quiz["mcq"][q_index]["answer"].strip().upper()
+        correct_L = quiz["mcq"][q_index]["answer"].strip().lower()
 
-        is_correct = user_answer.strip().lower() == correct.strip().lower()
+        is_correct = user_answer == correct_U or user_answer == correct_L
         result = {
             "question": question,
             "your_answer": user_answer,
-            "correct_answer": correct,
+            "correct_answer": correct_U,
             "is_correct": is_correct
         }
         quiz["answers"].append(result)
         quiz["current_mcq"] += 1
 
-        # if MCQs finished
         if quiz["current_mcq"] >= len(quiz["mcq"]):
             total = len(quiz["mcq"])
             correct_count = sum(1 for ans in quiz["answers"] if ans.get("is_correct"))
