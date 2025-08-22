@@ -13,7 +13,6 @@
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favico.ico') }}">
   </head>
   <body>
-    <!-- Header -->
     <header class="header">
         <div class="header-left">
             <div class="logo">
@@ -33,7 +32,7 @@
         <div class="header-right">
             <div class="date-section">
                 <div class="date-label">Today's Date</div>
-                <div class="date-value">Wednesday, August 20, 2025</div>
+                <div class="date-value" id="currentDate"></div>
             </div>
             <div class="user-profile">
                 <div class="user-avatar">S</div>
@@ -49,7 +48,6 @@
     </header>
 
     <div class="viewer-container">
-      <!-- PDF Viewer Section -->
       <div class="pdf-section">
         <div class="pdf-header">
           <h2>PDF Viewer</h2>
@@ -62,7 +60,6 @@
         </div>
       </div>
 
-      <!-- Chat Section -->
       <div class="chat-section">
         <div class="chat-header">
           <div class="header-content">
@@ -80,7 +77,6 @@
           </div>
         </div>
         
-        <!-- AI Typing Indicator -->
         <div class="typing-indicator" id="typingIndicator" style="display: none;">
           <div class="typing-avatar">🤖</div>
           <div class="typing-bubble">
@@ -97,10 +93,10 @@
           <div class="button-row">
             <button id="summarizeBtn" class="summarize-btn">📄 Summarize PDF</button>
             <button id="mindmapBtn" class="mindmap-btn">🧩 Mind Map</button>
+            <button id="quizBtn" class="quiz-btn">❓ Start Quiz</button>
             <button id="youtubeBtn" class="youtube-btn">🎥 YouTube Search</button>
           </div>
 
-          
           <div id="youtubeSearch" class="youtube-search" style="display: none;">
             <div class="youtube-input-row">
               <input
@@ -118,7 +114,7 @@
             <input
               type="text"
               id="chatInput"
-              placeholder="Ask a question!"
+              placeholder="Ask a question or answer quiz here!"
               maxlength="500"
             />
             <button id="sendBtn">Send</button>
@@ -127,255 +123,293 @@
       </div>
     </div>
 
-    <script>
-      // Theme Toggle Functionality
-      const themeToggle = document.getElementById('themeToggle');
-      const themeIcon = document.querySelector('.theme-icon');
-      
-      // Load saved theme or default to dark
-      const savedTheme = localStorage.getItem('theme') || 'dark';
-      document.body.setAttribute('data-theme', savedTheme);
-      updateThemeIcon(savedTheme);
-      
-      themeToggle.addEventListener('click', () => {
-          const currentTheme = document.body.getAttribute('data-theme');
-          const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-          
-          document.body.setAttribute('data-theme', newTheme);
-          localStorage.setItem('theme', newTheme);
-          updateThemeIcon(newTheme);
-      });
-      
-      function updateThemeIcon(theme) {
-          themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+<script>
+// --- START: FULLY CORRECTED SCRIPT ---
+
+// Theme Toggle Functionality
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon = document.querySelector('.theme-icon');
+const savedTheme = localStorage.getItem('theme') || 'dark';
+document.body.setAttribute('data-theme', savedTheme);
+updateThemeIcon(savedTheme);
+themeToggle.addEventListener('click', () => {
+    const currentTheme = document.body.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.body.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+});
+function updateThemeIcon(theme) {
+    themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+// Update Date
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+});
+
+
+// Load PDF when page loads
+window.addEventListener("load", function () {
+  fetch("/get-pdf-info")
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.filename) {
+        document.getElementById("pdfFrame").src = "/pdf/" + data.filename;
+      } else {
+        window.location.href = "/";
       }
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+      window.location.href = "/";
+    });
+});
 
-      // Load PDF when page loads
-      window.addEventListener("load", function () {
-        fetch("/get-pdf-info")
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.filename) {
-              document.getElementById("pdfFrame").src = "/pdf/" + data.filename;
-            } else {
-              window.location.href = "/";
-            }
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-            window.location.href = "/";
-          });
-      });
+const chatInput = document.getElementById("chatInput");
+const sendBtn = document.getElementById("sendBtn");
+const summarizeBtn = document.getElementById("summarizeBtn");
+const mindmapBtn = document.getElementById("mindmapBtn");
+const quizBtn = document.getElementById("quizBtn");
+const youtubeBtn = document.getElementById("youtubeBtn");
+const youtubeSearch = document.getElementById("youtubeSearch");
+const youtubeInput = document.getElementById("youtubeInput");
+const searchBtn = document.getElementById("searchBtn");
+const cancelBtn = document.getElementById("cancelBtn");
+const chatMessages = document.getElementById("chatMessages");
+const typingIndicator = document.getElementById("typingIndicator");
 
-      const chatInput = document.getElementById("chatInput");
-      const sendBtn = document.getElementById("sendBtn");
-      const summarizeBtn = document.getElementById("summarizeBtn");
-      const mindmapBtn = document.getElementById("mindmapBtn")
-      const youtubeBtn = document.getElementById("youtubeBtn");
-      const youtubeSearch = document.getElementById("youtubeSearch");
-      const youtubeInput = document.getElementById("youtubeInput");
-      const searchBtn = document.getElementById("searchBtn");
-      const cancelBtn = document.getElementById("cancelBtn");
-      const chatMessages = document.getElementById("chatMessages");
-      const typingIndicator = document.getElementById("typingIndicator");
+function addMessage(content, isUser = false) {
+  const messageDiv = document.createElement("div");
+  messageDiv.className = `message ${isUser ? "user-message" : "bot-message"}`;
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "message-content";
+  contentDiv.innerHTML = content;
+  messageDiv.appendChild(contentDiv);
+  chatMessages.appendChild(messageDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
 
-      function addMessage(content, isUser = false) {
-        const messageDiv = document.createElement("div");
-        messageDiv.className = `message ${
-          isUser ? "user-message" : "bot-message"
-        }`;
+function showTypingIndicator() {
+  typingIndicator.style.display = "flex";
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
 
-        const contentDiv = document.createElement("div");
-        contentDiv.className = "message-content";
-        contentDiv.innerHTML = content;
+function hideTypingIndicator() {
+  typingIndicator.style.display = "none";
+}
 
-        messageDiv.appendChild(contentDiv);
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }
+function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
 
-      function showTypingIndicator() {
-        typingIndicator.style.display = "flex";
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }
+    addMessage(message, true);
+    chatInput.value = "";
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Sending...";
 
-      function hideTypingIndicator() {
-        typingIndicator.style.display = "none";
-      }
+    showTypingIndicator();
 
-      function sendMessage() {
-        const message = chatInput.value.trim();
-        if (!message) return;
-
-        // Add user message
-        addMessage(message, true);
-        chatInput.value = "";
-        sendBtn.disabled = true;
-        sendBtn.textContent = "Sending...";
-
-        // Show typing indicator
-        showTypingIndicator();
-
-        // Send to backend
-        fetch("/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: message }),
+    // If quiz is active, send the answer to the quiz route
+    if (quizBtn.dataset.active === "true") {
+        fetch("/quiz/answer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ answer: message }),
         })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.response) {
-              addMessage(data.response);
+        .then((res) => res.json())
+        .then((data) => {
+            // **THE FIX**: First, check if the quiz is completely finished by looking for 'all_results'.
+            if (data.all_results) {
+                // 1. Display the final summary message from the backend
+                if(data.feedback) addMessage(`<b>Final Feedback:</b><br>${data.feedback}`);
+                if(data.message) addMessage(data.message);
+
+                // 2. Build and display the detailed results HTML
+                let resultsHtml = '<h3>📜 Detailed Results</h3>';
+                data.all_results.forEach(item => {
+                    // Check if it's an MCQ result
+                    if (item.is_correct !== undefined) {
+                        const resultClass = item.is_correct ? 'correct' : 'incorrect';
+                        resultsHtml += `
+                            <style>
+                                .result-item { border-left: 4px solid #555; padding-left: 10px; margin-bottom: 12px; }
+                                .result-item.correct { border-left-color: #28a745; }
+                                .result-item.incorrect { border-left-color: #dc3545; }
+                            </style>
+                            <div class="result-item ${resultClass}">
+                                <p><strong>Q:</strong> ${item.question}</p>
+                                <p>Your Answer: ${item.your_answer}</p>
+                                <p>Correct Answer: ${item.correct_answer}</p>
+                                <strong>Result: ${item.is_correct ? '✅ Correct' : '❌ Incorrect'}</strong>
+                            </div>
+                        `;
+                    }
+                    // Check if it's a Theory result
+                    else if (item.evaluation) {
+                         resultsHtml += `
+                            <div class="result-item">
+                                <p><strong>Theory Q:</strong> ${item.question}</p>
+                                <p><strong>Feedback:</strong> ${item.evaluation}</p>
+                            </div>
+                        `;
+                    }
+                });
+                addMessage(resultsHtml); // Add the full results block to the chat
+
+                // 3. Deactivate quiz mode
+                quizBtn.dataset.active = "false";
+            
             } else {
-              addMessage("Sorry, I encountered an error. Please try again.");
+                // This is the old logic for when the quiz is still ongoing.
+                if (data.result && data.result.is_correct !== undefined) {
+                    const feedbackMsg = data.result.is_correct ? '✅ Correct!' : `❌ Incorrect. The right answer was <strong>${data.result.correct_answer}</strong>.`;
+                    addMessage(feedbackMsg);
+                }
+                 if(data.message) addMessage(data.message);
+                 if (data.feedback) addMessage(`<b>Feedback:</b><br>${data.feedback}`);
+
+                if (data.next_question) {
+                     if (data.options) {
+                         addMessage(`<b>Next Question:</b> ${data.next_question}<br><i>Options: ${data.options.join(", ")}</i>`);
+                     } else {
+                         addMessage(`<b>Next Theory Question:</b> ${data.next_question}`);
+                     }
+                }
             }
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-            addMessage("Sorry, I encountered an error. Please try again.");
-          })
-          .finally(() => {
+        })
+        .catch((err) => addMessage("Error: " + err))
+        .finally(() => {
             hideTypingIndicator();
             sendBtn.disabled = false;
             sendBtn.textContent = "Send";
-          });
-      }
-
-      function summarizePDF() {
-        // Add "Summarizing..." message
-        addMessage("Summarize this PDF", true);
-        
-        summarizeBtn.disabled = true;
-        summarizeBtn.textContent = "Summarizing...";
-
-        // Show typing indicator
-        showTypingIndicator();
-
-        // Send summarize request to backend
-        fetch("/summarize", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.response) {
-              addMessage(data.response);
-            } else {
-              addMessage("Sorry, I encountered an error while summarizing. Please try again.");
-            }
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-            addMessage("Sorry, I encountered an error while summarizing. Please try again.");
-          })
-          .finally(() => {
-            hideTypingIndicator();
-            summarizeBtn.disabled = false;
-            summarizeBtn.textContent = "📄 Summarize PDF";
-          });
-      }
-
-
-      function mindmap(){
-          addMessage("Create a Mindmap for this PDF", true);
-          mindmapBtn.disabled =  true;
-          mindmapBtn.textContent = "Generating..";
-
-          showTypingIndicator()
-
-          fetch("/mindmap", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          })
-
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.response) {
-              addMessage(data.response);
-            } else {
-              addMessage("Sorry, I encountered an error while creating Mind map. Please try again.");
-            }
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-            addMessage("Sorry, I encountered an error while Mind Map. Please try again.");
-          })
-          .finally(() => {
-            hideTypingIndicator();
-            mindmapBtn.disabled = false;
-            mindmapBtn.textContent = "🧩 Mind Map";
-          });
-      }
-
-      function showYouTubeSearch() {
-        youtubeSearch.style.display = "block";
-        youtubeInput.focus();
-      }
-
-      function hideYouTubeSearch() {
-        youtubeSearch.style.display = "none";
-        youtubeInput.value = "";
-      }
-
-      function searchYouTube() {
-        const searchQuery = youtubeInput.value.trim();
-        if (!searchQuery) return;
-
-        // Add user message to show what they're searching for
-        addMessage(`Searching YouTube for: ${searchQuery}`, true);
-        
-        // Send YouTube search request to backend
+        });
+    } else {
+        // Normal chat logic (remains unchanged)
         fetch("/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ message: `search youtube for: ${searchQuery}` }),
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: message }),
         })
-          .then((response) => response.json())
-          .then((data) => {
+        .then((response) => response.json())
+        .then((data) => {
             if (data.response) {
-              addMessage(data.response);
+                addMessage(data.response);
             } else {
-              addMessage("YouTube search opened in browser!");
+                addMessage("Sorry, I encountered an error. Please try again.");
             }
-          })
-          .catch((error) => {
+        })
+        .catch((error) => {
             console.error("Error:", error);
-            addMessage("YouTube search opened in browser!");
-          });
+            addMessage("Sorry, I encountered an error. Please try again.");
+        })
+        .finally(() => {
+            hideTypingIndicator();
+            sendBtn.disabled = false;
+            sendBtn.textContent = "Send";
+        });
+    }
+}
 
-        hideYouTubeSearch();
+function summarizePDF() {
+  addMessage("Summarize this PDF", true);
+  summarizeBtn.disabled = true;
+  summarizeBtn.textContent = "Summarizing...";
+  showTypingIndicator();
+  fetch("/summarize", { method: "POST", headers: { "Content-Type": "application/json" }})
+    .then((res) => res.json())
+    .then((data) => addMessage(data.response || "Error while summarizing."))
+    .catch((err) => addMessage("Error: " + err))
+    .finally(() => {
+      hideTypingIndicator();
+      summarizeBtn.disabled = false;
+      summarizeBtn.textContent = "📄 Summarize PDF";
+    });
+}
+
+function mindmap() {
+  addMessage("Create a Mindmap for this PDF", true);
+  mindmapBtn.disabled = true;
+  mindmapBtn.textContent = "Generating..";
+  showTypingIndicator();
+  fetch("/mindmap", { method: "POST", headers: { "Content-Type": "application/json" }})
+    .then((res) => res.json())
+    .then((data) => addMessage(data.response || "Error creating Mind Map."))
+    .catch((err) => addMessage("Error: " + err))
+    .finally(() => {
+      hideTypingIndicator();
+      mindmapBtn.disabled = false;
+      mindmapBtn.textContent = "🧩 Mind Map";
+    });
+}
+
+function startQuiz() {
+  addMessage("Starting Quiz...", true);
+  quizBtn.disabled = true;
+  quizBtn.textContent = "Starting...";
+  showTypingIndicator();
+  fetch("/quiz/start", { method: "POST", headers: { "Content-Type": "application/json" }})
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.question) {
+        quizBtn.dataset.active = "true";
+        addMessage(`<b>First Question:</b> ${data.question} <br>Options: ${data.options.join(", ")}`);
+      } else {
+        addMessage("Error starting quiz.");
       }
+    })
+    .catch((err) => addMessage("Error: " + err))
+    .finally(() => {
+      hideTypingIndicator();
+      quizBtn.disabled = false;
+      quizBtn.textContent = "❓ Start Quiz";
+    });
+}
 
-      sendBtn.addEventListener("click", sendMessage);
-      summarizeBtn.addEventListener("click", summarizePDF);
-      mindmapBtn.addEventListener("click", mindmap);
-      youtubeBtn.addEventListener("click", showYouTubeSearch);
-      searchBtn.addEventListener("click", searchYouTube);
-      cancelBtn.addEventListener("click", hideYouTubeSearch);
-      
-      chatInput.addEventListener("keypress", function (e) {
-        if (e.key === "Enter") {
-          sendMessage();
-        }
-      });
+function showYouTubeSearch() {
+  youtubeSearch.style.display = "block";
+  youtubeInput.focus();
+}
+function hideYouTubeSearch() {
+  youtubeSearch.style.display = "none";
+  youtubeInput.value = "";
+}
+function searchYouTube() {
+  const searchQuery = youtubeInput.value.trim();
+  if (!searchQuery) return;
+  addMessage(`Searching YouTube for: ${searchQuery}`, true);
+  fetch("/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: `search youtube for: ${searchQuery}` }),
+  })
+    .then((res) => res.json())
+    .then((data) => addMessage(data.response || "YouTube search opened in browser!"))
+    .catch(() => addMessage("YouTube search opened in browser!"));
+  hideYouTubeSearch();
+}
 
-      youtubeInput.addEventListener("keypress", function (e) {
-        if (e.key === "Enter") {
-          searchYouTube();
-        }
-        if (e.key === "Escape") {
-          hideYouTubeSearch();
-        }
-      });
-    </script>
+sendBtn.addEventListener("click", sendMessage);
+summarizeBtn.addEventListener("click", summarizePDF);
+mindmapBtn.addEventListener("click", mindmap);
+quizBtn.addEventListener("click", startQuiz);
+youtubeBtn.addEventListener("click", showYouTubeSearch);
+searchBtn.addEventListener("click", searchYouTube);
+cancelBtn.addEventListener("click", hideYouTubeSearch);
+chatInput.addEventListener("keypress", function (e) {
+  if (e.key === "Enter") {
+    sendMessage();
+  }
+});
+youtubeInput.addEventListener("keypress", function (e) {
+  if (e.key === "Enter") searchYouTube();
+  if (e.key === "Escape") hideYouTubeSearch();
+});
+
+// --- END: FULLY CORRECTED SCRIPT ---
+</script>
   </body>
 </html>
