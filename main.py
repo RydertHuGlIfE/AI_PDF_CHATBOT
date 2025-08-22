@@ -5,6 +5,7 @@ import PyPDF2
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import RequestEntityTooLarge
 import webbrowser
+import json 
 
 app = Flask(__name__)
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,7 +19,7 @@ ALLOWED_EXTENSIONS = {'pdf'}
 
 app.secret_key = "areterimkbsda"   
 
-genai.configure(api_key="ADD_YOUR_GEMINI_API_KEY_HERE")
+genai.configure(api_key="insert_api_key")
 model = genai.GenerativeModel("models/gemini-1.5-flash", generation_config={
     "temperature": 0.7,
     "top_p": 0.9,
@@ -196,7 +197,174 @@ PDF CONTENT:
         return jsonify({"response": ai_response, "is_html": True})
     except Exception as e:
         return jsonify({"error": f"Error generating summary: {str(e)}"}), 500
- 
+
+
+@app.route('/quiz/start', methods=['POST'])
+def start_quiz():
+    filename = session.get('pdf_filename', '')
+
+    if not filename:
+        return jsonify({"error": "No PDF Loaded"}), 400
+
+    text_path = os.path.join(app.config['UPLOAD_FOLDER'], filename + ".txt")
+    if not os.path.exists(text_path):
+        return jsonify({"error": "Extracted Text not found"}), 400
+
+    with open(text_path, "r", encoding="utf-8") as f:
+        pdf_text = f.read()
+
+    prompt = f"""
+    You are in quiz mode. Generate 5 MCQ questions with 4 options and correct answer,
+    and 5 theoretical questions. Return **only JSON**, strictly in this format:
+    {{
+      "mcq": [
+        {{"q": "question text", "options": ["A","B","C","D"], "answer": "B"}}
+      ],
+      "theory": [
+        "theory question 1",
+        "theory question 2"
+      ]
+    }}
+
+    PDF CONTENT:
+    {pdf_text}
+    """
+
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.candidates[0].content.parts[0].text.strip()
+
+        # clean possible junk around JSON
+        if raw_text.startswith("```"):
+            raw_text = raw_text.strip("`")  
+        if raw_text.lower().startswith("json"):
+            raw_text = raw_text[4:].strip()
+
+        quiz_data = json.loads(raw_text)  # <-- safe parsing
+
+        session['quiz'] = {
+            "mcq": quiz_data["mcq"],
+            "theory": quiz_data["theory"],
+            "current_mcq": 0,
+            "current_theory": 0,
+            "phase": "mcq",
+            "answers": []
+        }
+        session.modified = True
+
+        first_q = quiz_data["mcq"][0]
+        return jsonify({"question": first_q["q"], "options": first_q["options"]})
+
+    except Exception as e:
+        return jsonify({"error": f"Error generating Quiz: {str(e)}"}), 500
+
+
+
+@app.route('/quiz/answer', methods=['POST'])
+def quiz_answer():
+    data = request.json
+    user_answer = data.get("answer", "")
+
+    quiz = session.get('quiz', None)
+    if not quiz:
+        return jsonify({"error": "Quiz not started"}), 400
+
+    # --- MCQ MODE ---
+    if quiz["phase"] == "mcq":
+        q_index = quiz["current_mcq"]
+        question = quiz["mcq"][q_index]["q"]
+        correct = quiz["mcq"][q_index]["answer"]
+
+        is_correct = user_answer.strip().lower() == correct.strip().lower()
+        result = {
+            "question": question,
+            "your_answer": user_answer,
+            "correct_answer": correct,
+            "is_correct": is_correct
+        }
+        quiz["answers"].append(result)
+        quiz["current_mcq"] += 1
+
+        # if MCQs finished
+        if quiz["current_mcq"] >= len(quiz["mcq"]):
+            total = len(quiz["mcq"])
+            correct_count = sum(1 for ans in quiz["answers"] if ans.get("is_correct"))
+            score_msg = f"<h3>MCQ Round Completed!</h3><p>You scored <strong>{correct_count}/{total}</strong>.</p>"
+
+            quiz["phase"] = "theory"
+            session['quiz'] = quiz
+
+            return jsonify({
+                "result": result,
+                "message": score_msg,
+                "all_mcq_results": quiz["answers"],
+                "next_question": quiz["theory"][0]
+            })
+
+        else:
+            next_q = quiz["mcq"][quiz["current_mcq"]]
+            session['quiz'] = quiz
+            return jsonify({
+                "result": result,
+                "next_question": next_q["q"],
+                "options": next_q["options"]
+            })
+
+    # --- THEORY MODE ---
+    elif quiz["phase"] == "theory":
+        q_index = quiz["current_theory"]
+        question = quiz["theory"][q_index]
+
+        eval_prompt = f"""
+        Evaluate this theoretical answer:
+        Question: {question}
+        User Answer: {user_answer}
+
+        Analyse on:
+        - Coverage of topic
+        - Depth of knowledge
+        - Confidence Score (out of 10)
+        - Marks out of 12
+
+        Return clean bullet points only.
+        """
+        response = model.generate_content(eval_prompt)
+        feedback = response.candidates[0].content.parts[0].text
+
+        quiz["answers"].append({
+            "question": question,
+            "answer": user_answer,
+            "evaluation": feedback
+        })
+        quiz["current_theory"] += 1
+
+        # if more theory left
+        if quiz["current_theory"] < len(quiz["theory"]):
+            next_q = quiz["theory"][quiz["current_theory"]]
+            session['quiz'] = quiz
+            return jsonify({
+                "feedback": feedback,
+                "next_question": next_q
+            })
+
+        # if finished all theory
+        else:
+            mcq_results = [a for a in quiz["answers"] if "is_correct" in a]
+            total_mcq = len(mcq_results)
+            correct_mcq = sum(1 for a in mcq_results if a["is_correct"])
+            score_msg = f"<h3>Quiz Completed!</h3><p>Your MCQ Score: <strong>{correct_mcq}/{total_mcq}</strong></p>"
+
+            all_results = quiz["answers"]
+
+            # EXIT QUIZ MODE
+            session.pop('quiz', None)
+
+            return jsonify({
+                "feedback": feedback,
+                "message": score_msg + "<p>You are now back to normal mode ✅</p>",
+                "all_results": all_results
+            })
+
 
 @app.route("/mindmap", methods=['POST'])
 def mindmap():
